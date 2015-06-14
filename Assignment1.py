@@ -2,6 +2,10 @@
    Python program runs on local host, uploads, downloads, encrypts local files to google.
    Please use python 2.7.X, pycrypto 2.6.1 and Google Cloud python module '''
 
+'''Name:Pavan Ghanta
+   Course:CSE 6331
+   Lab:Assignment 1'''
+
 #import statements.
 import argparse
 import httplib2
@@ -139,6 +143,7 @@ def get(service):
 	    if status:
 	        print 'Download %d%%.' % int(status.progress() * 100)
 	    print 'Download Complete!'
+	#Prompts for password for the file to decrypt
 	password=raw_input('Enter password to decrypt the file:')
 	key = hashlib.sha256(password).digest()
 	dec = decrypt(fh.getvalue(),key)
@@ -154,6 +159,7 @@ def get(service):
 def put(service):  
     print('Sample')
     filename=raw_input('Enter filename:')
+    #Prompts for password for the file to decrypt
     password =raw_input('Enter password to encrypt the file:')
     key = hashlib.sha256(password).digest()
     encrypted_file=encrypt_file(filename,key)
@@ -161,14 +167,10 @@ def put(service):
     encfiledata=encfile.read()
     fileio = io.BytesIO()
     fileio.write(encfiledata)
-    media = apiclient.http.MediaIoBaseUpload(fileio, '[*/*]')
-    req = service.objects().insert(
-        bucket=_BUCKET_NAME,
-        name=encrypted_file,
-        media_body=media)
-    success=False
+    uploadfile = apiclient.http.MediaIoBaseUpload(fileio, '[*/*]')
+    uploadrequest = service.objects().insert(bucket=_BUCKET_NAME,name=encrypted_file,media_body=uploadfile)
     try:
-        resp = req.execute()
+        uploadresponse = uploadrequest.execute()
         os.remove(os.path.join(data_dir,encrypted_file))
         os.remove(os.path.join(data_dir,filename))
         print 'File ecryption completed and uploaded to Google Cloud'
@@ -184,6 +186,7 @@ def put(service):
 
 #Lists all the objects from the given bucket name
 def listobj(service):
+    #Lists the files in the bucket
     listrequest = service.objects().list(bucket=_BUCKET_NAME)
     listresponse = listrequest.execute()
     print('List of files:')
@@ -193,6 +196,7 @@ def listobj(service):
 
 #This deletes the object from the bucket
 def deleteobj(service):
+    #Prompts for file name to delete
     deleteobject=raw_input("Enter the name of the object to delete:")
     deleterequest = service.objects().delete(bucket=_BUCKET_NAME,object=deleteobject)
     try:
