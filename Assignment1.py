@@ -24,7 +24,6 @@ from Crypto.Cipher import AES
 data_dir=os.path.dirname(__file__)
 
 # Encryption using AES
-#You can read more about this in the following link
 #http://eli.thegreenplace.net/2010/06/25/aes-encryption-of-files-in-python-with-pycrypto
 
 
