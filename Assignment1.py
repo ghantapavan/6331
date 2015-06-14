@@ -21,7 +21,7 @@ import apiclient.http
 #pycry#pto libraries.
 from Crypto import Random
 from Crypto.Cipher import AES
-
+data_dir=os.path.dirname(__file__)
 
 # Encryption using AES
 #You can read more about this in the following link
@@ -29,9 +29,7 @@ from Crypto.Cipher import AES
 
 
 #Initial password to create a key
-password = 'googlecloud'
-#key to use
-key = hashlib.sha256(password).digest()
+
 
 #this implementation of AES works on blocks of "text", put "0"s at the end if too small.
 def pad(s):
@@ -55,12 +53,12 @@ def decrypt(ciphertext, key):
 
 #Function to encrypt a given file
 def encrypt_file(file_name, key):
-    filepath=os.path.join(os.path.dirname(__file__),file_name)
+    filepath=os.path.join(data_dir,file_name)
     ipfile=open(filepath,'rb')
     filedata=ipfile.read()
     encrypteddata=encrypt(filedata,key)
     encfilename="enc_"+file_name
-    encfilepath=os.path.join(os.path.dirname(__file__),encfilename)
+    encfilepath=os.path.join(data_dir,encfilename)
     encfile=open(encfilepath,'wb')
     encfile.write(encrypteddata)
     return encfilename
@@ -74,11 +72,11 @@ def encrypt_file(file_name, key):
 def decrypt_file(file_name, key):
 	#open file read the data of the file, decrypt the file data and 
 	#create a new file and then write the decrypted data to the file.
-    ipfile1=open(os.path.join(os.path.dirname(__file__),file_name),'rb')
+    ipfile1=open(os.path.join(data_dir,file_name),'rb')
     encfiledata=ipfile1.read()
     decrypeddata=decrypt(encfiledata,key)
     decfilename=file_name[4:]
-    decfile=open(os.path.join(os.path.dirname(__file__),decfilename),'wb')
+    decfile=open(os.path.join(data_dir,decfilename),'wb')
     decfile.write(decrypeddata)
     return decfilename
 
@@ -99,7 +97,7 @@ parser = argparse.ArgumentParser(
 
 # client_secret.json is the JSON file that contains the client ID and Secret.
 #You can download the json file from your google cloud console.
-CLIENT_SECRETS = os.path.join(os.path.dirname(__file__), 'client_secret.json')
+CLIENT_SECRETS = os.path.join(data_dir, 'client_secret.json')
 
 # Set up a Flow object to be used for authentication.
 # Add one or more of the following scopes. 
@@ -116,11 +114,12 @@ FLOW = client.flow_from_clientsecrets(CLIENT_SECRETS,
 def get(service):
   #User can be prompted to input file name(using raw_input) that needs to be be downloaded, 
   #as an example file name is hardcoded for this function.
+  downloadfilename=raw_input("Enter the filename to download:")
   try:
 # Get Metadata
 	req = service.objects().get(
         	bucket=_BUCKET_NAME,
-        	object='Images.jpg',
+        	object=downloadfilename,
         	fields='bucket,name,metadata(my-key)',    
         
                 )                   
@@ -130,7 +129,7 @@ def get(service):
 # Get Payload Data
 	req = service.objects().get_media(
         	bucket=_BUCKET_NAME	,
-        	object='Images.jpg',
+        	object=downloadfilename,
 		)
 # The BytesIO object may be replaced with any io.Base instance.
 	fh = io.BytesIO()
@@ -141,11 +140,13 @@ def get(service):
 	    if status:
 	        print 'Download %d%%.' % int(status.progress() * 100)
 	    print 'Download Complete!'
+	password=raw_input('Enter password to decrypt the file:')
+	key = hashlib.sha256(password).digest()
 	dec = decrypt(fh.getvalue(),key)
-	with open('decodefile', 'wb') as fo:
+	with open(downloadfilename[4:], 'wb') as fo:
              fo.write(dec)
-    	print json.dumps(resp, indent=2)
-    
+    	print 'File decryption completed'
+
 
   except client.AccessTokenRefreshError:
     print ("Error in the credentials")
@@ -154,8 +155,28 @@ def get(service):
 def put(service):  
     print('Sample')
     filename=raw_input('Enter filename:')
+    password =raw_input('Enter password to encrypt the file:')
+    key = hashlib.sha256(password).digest()
     encrypted_file=encrypt_file(filename,key)
-    # decrypt_file(encrypted_file,key)
+    encfile=open(os.path.join(data_dir,encrypted_file))
+    encfiledata=encfile.read()
+    fileio = io.BytesIO()
+    fileio.write(encfiledata)
+    media = apiclient.http.MediaIoBaseUpload(fileio, '[*/*]')
+    req = service.objects().insert(
+        bucket=_BUCKET_NAME,
+        name=encrypted_file,
+        media_body=media)
+    success=False
+    try:
+        resp = req.execute()
+        os.remove(os.path.join(data_dir,encrypted_file))
+        os.remove(os.path.join(data_dir,filename))
+        print 'File ecryption completed and uploaded to Google Cloud'
+    except:
+        print('Failed to upload')
+
+
 	# '''User inputs the file name that needs to be uploaded.
 	#    Encrypt the given file using AES encryption
 	#    and then upload the file to your bucket on the google cloud storage.
@@ -164,14 +185,22 @@ def put(service):
 
 #Lists all the objects from the given bucket name
 def listobj(service):
-	'''List all the objects that are present inside the bucket. '''
-
+    listrequest = service.objects().list(bucket=_BUCKET_NAME)
+    listresponse = listrequest.execute()
+    print('List of files:')
+    items=listresponse["items"]
+    for eachitem in items:
+        print(eachitem["name"])
 
 #This deletes the object from the bucket
 def deleteobj(service):
-	'''Prompt the user to enter the name of the object to be deleted from your bucket.
-	    Pass the object name to the delete() method to remove the object from your bucket'''
- 
+    deleteobject=raw_input("Enter the name of the object to delete:")
+    deleterequest = service.objects().delete(bucket=_BUCKET_NAME,object=deleteobject)
+    try:
+        deleterequest.execute()
+        print(deleteobject+' deleted successfully')
+    except:
+        print('Delete failed')
 
 	
 def main(argv):
